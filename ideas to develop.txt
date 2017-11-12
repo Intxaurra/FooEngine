@@ -1,0 +1,126 @@
+in main, only load engine and call something like engine.run()
+
+engine is the only system that has a singleton in what regards to engine code
+	- the engine has instances of all systems: input, window, renderer, audio...
+	- the engine has an instance to the factory
+	- the engine has an instance to the memory manager
+	- etc...
+		* the engine can provide access to any of this stuff via gettors
+
+have all the code in main inside a try{}catch(){} block, and make functions that would terminate the program with a assert(false) throw a custom exception that this block would catch
+	- this allows to define functions that may crash the engine as functions that throw exceptions with the trow(my custom exception) at function declaration
+	
+JSON as parsing language (because is easy to read and parse and it's lightweight)
+
+ISingleton as a templated class to inherit
+	- see Ubisoft test's singleton at engine.h (theirs is not templated)
+		template <typename T>
+		class ISingleton
+		{
+		   public:
+			   ISingleton() : mInstance(nullptr) {}
+
+			   ~ISingleton()
+			   {
+				   if (mInstance)
+					  delete mInstance;
+				   mInstance = nullptr;
+			   }
+
+			   T* GetInstance()
+			   {
+				   if (mInstance == nullptr)
+					  mInstance = new T();
+				   return mInstance;
+			   }
+
+		   private:
+			   T* mInstance;
+		}
+	
+ISerializable as a class to inherit
+
+override feature in serialization
+	- see Ubisoft test's serialization
+	
+archetype manager holds Json::Values with the files
+
+make use of JSON's arrays to serialize things like Vector3, like this: "position" : [0.0, 0.0, 10.0]
+	- then just access each component as jsonvalue["position"][i], where i = 0 (x), i = 1 (y), i = 2 (z)
+	
+Config class for engine's general configuration settings
+	- see Ubisoft test's Config class
+	+ also, make this config serialize the paths in the data folder for archetypes, textures, meshes, sounds..., and then systems take the paths from this class and load everything there
+	
+Have a .txt with the default values for classes, systems, etc...
+	- Useful for when having an editor
+		* EXAMPLE: GraphicsComponent is set to visible by default
+					- This value is not hardcoded, but red from the .txt file
+					- If a user wants GraphicsComponents to be set invisible by default, he changes the .txt
+	- This could be made using the prefabs/archetypes (one for each component, resource...)
+	
+Relating to Debug printing, have two macros, PRINT_WARNING and PRINT_ERROR: the first just prints to the debug console (in yellow if possible), and the second does the same (in red if possible) but also calls assert(false)
+	- see Ubisoft test's framework\debug.h
+	
+Start declaring classes with final keyword if they are not supposed to be derived from
+
+Check std::numeric_limits
+
+Start using override keyword to show that function is virtual and is being re-defined
+
+Timer class to count time and call a callback function provided when finished
+	- see Ubisoft test's framework\timer.h
+	
+Not really have to use it, but keep in mind std::array exists (and it's very useful)
+
+Check Ubisoft test's framework\texturevisualcomponent.h for passing size-specific c-style arrays as function arguments (without the decay to simple pointers to the first element in the array)
+	* really interesting stuff!
+	- it's better to use std::array though (it's easier to read and understand, specially when returning an array as return value)
+	
+When defining a function that has a default parameter, re-write it in the function definition as follows (it is really worth it, trust me):
+	void Foo(int myParam = 3);			// declaration
+	void Foo(int MyParam /* = 3 */)	{}	// definition
+	
+Check CEngine's Mesh class, and how it organizes vertices/uvs/normals and all that stuff
+	- also, learn about data packing and sending to OpenGL (check GAM300 engine for help)
+	
+Check Ubisoft test for how they put the initializer list in class constructors (one element per row), it's easier to read
+
+Check Ubisoft test's Signal class: it's a very useful kind of event system
+
+Check Ubisoft test's EntityAddedToScene/EntityRemovedFromScene and OwnerAddedToScene/OwnerRemovedFromScene, as they allow to have a 2nd destructor that isn't the destructor itself
+	- this is helpful, as with smart pointers, objects are freed AFTER exiting the destructor, so you can't reference, for example, the owner entity on a component's destructor
+	- you can do that in OwnerRemovedFromScene though, as it is called just before actually deleting the owner entity
+	
+A macro only to compile something in debug, something like:
+	#ifdef _DEBUG
+		#define DebugOnly(x) x
+	#else
+		#define DebugOnly(x)
+	#endif
+	
+Separate .h and .cpp files into two folders of the same architecture:
+   - include files (.h)    --> MAIN_PATH/Include/...
+   - source files (.cpp) --> MAIN_PATH/Source/...
+	(They still go in folders for each project and stuff, but that way nothing has to be changed for the include folders to exist)
+	
+En Config, bool para print to console OR print to file
+	-Si lo segundo, otro string con la path de la file a la que printear
+	* Luego, DebugPrint() tiene en cuenta esto para printear a cout o a un std::ofstream
+	
+You can change the visibility of virtual functions from a Base class in a Derived class. Something like this:
+		class Base												class DerivedProtected : public Base				class DerivedProtectedFull : public Base
+		{														{													{
+		public:													public:												public:
+			Base() = default;										DerivedProtected() = default;						DerivedProtectedFull() = default;
+			virtual ~Base() = default;								virtual ~DerivedProtected() = default;				virtual ~DerivedProtectedFull() = default;
+
+			virtual void VirtualFunction();							virtual void VirtualFunction();					protected:
+			virtual void PureVirtualFunction() = 0;				protected:												virtual void VirtualFunction();
+		};															virtual void PureVirtualFunction();					virtual void PureVirtualFunction();
+																};													};
+	So basicly, if you implement an interface and you want to make sure the user can only use the interface class (and not the derived class via casting and shit), make everything in the derived class be protected (or private).
+
+Implement a correct and useful depth-buffer
+	- reversed-z depth buffering: https://nlguillemot.wordpress.com/2016/12/07/reversed-z-in-opengl/
+	- linearly-correct depth-precission: https://developer.nvidia.com/content/depth-precision-visualized
