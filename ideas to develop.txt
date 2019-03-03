@@ -124,3 +124,217 @@ You can change the visibility of virtual functions from a Base class in a Derive
 Implement a correct and useful depth-buffer
 	- reversed-z depth buffering: https://nlguillemot.wordpress.com/2016/12/07/reversed-z-in-opengl/
 	- linearly-correct depth-precission: https://developer.nvidia.com/content/depth-precision-visualized
+	
+Resource Manager: make any class be able to register to a Event when certain resource is loaded successfully
+	- Resource of name X has been loaded
+	- Resource of any name has been loaded
+	- Resource of type Y has been loaded
+	etc (do the same with unloading too)
+	
+Enable Strict Aliasing in the Visual Studio compiling options to generate faster code, so that the same value is not loaded into the L1 cache multiple times
+
+In the wrappers of the Vector3, Line3D and stuff, add gettors for dimension indices (a.k.a. u8 array[3] = {0u, 1u, 2u})
+	- in addition, add global gettors for X,Y,Z axises and XY, XZ and YZ planes and stuff like that
+	
+Add static instantiations of certain data types for recurrently used values and keep them as public in the classes, such as:
+	static const Vector2 Vector2::ZeroVector = Vector2(0.0f, 0.0f);
+	static const Vector3 Vector3::ZeroVector = Vector3(0.0f, 0.0f, 0.0f);
+	static const Vector4 Vector4::ZeroVector = Vector4(0.0f, 0.0f, 0.0f, 0.0f);
+	static const Matrix2 Matrix2::ZeroMatrix = Matrix2 (0.0f, 0.0f, 0.0f, 0.0f);
+	static const Matrix2 Matrix2::IdentityMatrix = Matrix2 (1.0f, 0.0f, 0.0f, 1.0f);
+Do this for all math data types and structs.
+	
+Things to do in your clock class:
+	- Define types for different time units:
+		Using seconds = std::chrono::duration<i64, std::ratio<1>>;
+		Using miliseconds = std::chrono::duration<i64, std::milli>;
+	  Also define types for different data types:
+		Using fseconds = std::chrono::duration<float, std::ratio<1>>;
+		Using fmiliseconds = std::chrono::duration<float, std::milli>;
+		
+	* This can be extended also for different metric units:
+		Using meter = float;
+		
+	- Store game elapsed time in doubles instead of in floats, with seconds as unit.
+	  Also, initialize first elapsed time at 2^32 seconds for keeping a double precission of ~1 microsecond (1*10^-6).
+	  dt can still be a float, but the substraction should be done between doubles.
+		* For example:
+			double startTime = GetTime();
+			// Do stuff
+			float dt = static_cast<float>(GetTime() – startTime);
+	
+	* In other words, the current time is ALWAYS a double. The time fractions, such as dt, can still be floats.
+	* Explanation here: https://randomascii.wordpress.com/2012/02/13/dont-store-that-in-a-float/
+
+Declare some #define for debug mode: for example, #define feDebug = _DEBUG
+Then, encapsulate code that you want only to run in debug mode in an #ifdef/#endif block
+	- For example:
+		#ifdef feDebug
+			const Vector3 start, end;
+			const Graphics::Color debugColor;
+			Graphics::AddDebugLine(start, end, debugColor, dt);
+		#endif
+
+Have some preset bad values for an uninitialized algorithmic value, such as:
+	const ubiVector4 BAD_VECTOR4(G4::Float32_Max, G4::Float32_Min, G4::Float32_Max, G4::Float32_Min);
+	const ubiVector3 BAD_VECTOR3(G4::Float32_Max, G4::Float32_Min, G4::Float32_Max);
+	const ubiVector2 BAD_VECTOR2(G4::Float32_Max, G4::Float32_Min);
+Same with Matrices and Quaternions and stuff.
+It also servers to invalidate some value and check for invalid operations: division by zero, for example.
+
+Have custom exceptions for certain erros of your engine (remember to have your engine in a try{}catch{} block!)
+
+Add this functions to your Math library’s global functions:
+	inline f32 GetSign(const f32 number) const
+	{
+		return (number >= 0.0f) ? 1.0f : -1.0f;
+	}
+
+	inline f64 GetSign(const f64 number) const
+	{
+		return (number >= 0.0) ? 1.0 : -1.0;
+	}
+
+	inline i8 GetSign(const i8 number) const
+	{
+		return (number >= 0) ? 1 : -1;
+	}
+
+	inline i16 GetSign(const i16 number) const
+	{
+		return (number >= 0) ? 1 : -1;
+	}
+
+	inline i32 GetSign(const i32 number) const
+	{
+		return (number >= 0) ? 1 : -1;
+	}
+
+	inline i64 GetSign(const i64 number) const
+	{
+		return (number >= 0) ? 1 : -1;
+	}
+Then also something like this? But maybe not because it doesn’t make much sense:
+	inline u32 GetSign(const u32 number) const
+	{
+		// unsigned values are always positive
+		return 0u;
+	}
+
+Read this: http://www.bfilipek.com/2017/12/why-uniqueptr.html
+	- 6th point serves for a memory allocator allocation/deallocation process.
+	
+When using a std algorithm that requires a comparison function ptr or functor (ej. std::find_if), pass a functor created like this:
+	struct FooSorter
+	{
+        bool operator()(const Foo& fooA, const Foo& fooB)
+		{
+			// do whatever
+			return (fooA.mNumber > fooB.mNumber);
+		}
+	}
+This is user-friendly, easy to understand and reusable.
+
+#undef preprocessor removes a define, useful for hiding global variables inside a .cpp file
+	Example:
+		GraphicsSystem.cpp
+			- Beginning of file -
+			#define MAX_TEXTURES 16
+
+			// lots of graphics code and stuff
+
+			#undef MAX_TEXTURES
+			- End of file -
+	* This way, MAX_TEXTURES only exists in GraphicsSystem.cpp, and is hidden for the rest of the project
+	
+Have a global clock to know for how long the program has been executing. Also keep the time (from the computer) of when the program has been executing.
+	- This is useful when loading things (debug output), for example.
+Also, have a counter of how many frames has the program been running for.
+	- At 60 fps, a 32-bit unsigned integer gives you ~71582788 sec = ~19884 h = ~828 days = ~2 years and 4 months before overflowing.
+	- A 64-bit unsigned, however, gives you at 60 fps ~3.07 * 10^17 sec = ~85401592933840 h = ~ 3558399705576 days = ~9749040289 years
+	  Which is a fucking lot. Even at, I don’t know, 6000 fps, it still gives you 3074457345618259 sec = ~854015929338 h = ~35583997055 days = ~97490402 years
+The counter of frames can be very useful to know, for example, if when jumping from one breakpoint to another, a frame has passed.
+
+Big task: create a frame-history, that keeps track of the functions that have been called on the X previous frames (configurable).
+It would be useful when you have a crash, as you would have the complete callstack of a couple of previous frames in a sensible text format (xml, for example).
+For example:
+	Frame #35
+		Engine::Run()
+			FRC::BeginFrame()
+				Physics::Update()
+					PhysicsComponent::Update()
+					PhysicsComponent::Update()
+						CollisionDetection()
+						CollisionDetectionAlgorithms::SAT()
+					Etc…
+			FRC::EndFrame()
+
+	Frame #36
+		Engine::Run()
+	Etc…
+ - You would have this for a couple of frames.
+ - With a format like, for example, xml, you could hide all and go opening just what you are interested in
+ - The mini-dump has a callstack, yes, but it might happen that the reason your program crashed was a couple of frames before the thing actually crashed. This way you can know if some weird function was called by finding it.
+ - It supports finding by name! Yay!
+
+Have some kind of ObjectManager, which spawns objects in the world and keeps ownership of them. It could be a system kept by the Scene (as the scene should keep ownership of it’s objects), but should be easily globally accessible.
+Then, keep a maximum number of objects. Trying to spawn more objects than the maximum should break the program!
+This is useful to set boundaries to your game and optimize knowing those boundaries. For example: my optimizations will be different in scale depending on wether my max object count is 100 or 5000.
+
+Class SpawnPoint
+{
+	Private Transform3D mSpawnTransform;	// Transform3D that is going to be assigned to the spawned entity
+	Public Entity* mExampleEntity;			// EDITOR ONLY! Data to set in editor to show an entity as an example of how it would look if spawned in this SpawnPoint
+}
+
+Create a callback that tells two objects that have collided: one for broadphase, middlephase and narrowphase.
+
+Allow a Contact (collision pair) to be discarded from the collision detection/resolution process at any time by passing one of the colliding objets.
+
+ASSET FORMAT
+	- gLTF 2.0 : https://godotengine.org/article/we-should-all-use-gltf-20-export-3d-assets-game-engines
+	- Iker says that it falls short in comparison with OpenGex, maybe in the future they add more support to it? : http://opengex.org/comparison.html
+
+HOW TO PASS OUT PARAMETERS
+  * I'm not sure of this one, if you pass something as a non-const reference you should expect it to change, same with pointers
+  * If you need to pass a pointer/reference as a non-const because you need to call a non-const function, then either that function should be const, or you are trying to change the object, which means the non-const ref/ptr is OK to begin with
+	struct Bar {}
+		1) Out parameters: void Foo(int& out_Integer, Bar* out_Bar);
+			- They are set everytime
+		2) Optional-out parameters: void Foo(int* optout_Integer);
+			- Same as previous out parameter integer, but the pointer will only be set if it’s non-zero (you can choose to pass the out argument or not)
+
+DebugDraw: vectors (arrow from A to B)
+DebugDraw: vectors relative to object (pass vector end-point in OBJECT-SPACE and object, vector is drawn from object’s center to end-point)
+
+Add the ability to have multiple BoundingVolumes in an entity
+Multiple BVs can be used by the same entity for different purposes
+	- ACTUALLY: Make a BoundingVolume be a resource separated from the CollisionComponent
+	
+You need to name your local namespaces in your .cpp files with unique names, otherwise you could have conflicts in the linking process if two .cpp files have each a function in their local namespace with the same name.
+	- For this to go, it would be cool to add a macro, something like: feDeclareAnonymousNamespace, which creates the name of the local namespace, and which also defines feAnonymousNamespace
+	  as a shortcut to it’s respective local namespace. This could be done with the windows macros to get the file path.
+
+Class Angle
+{
+    Enum class eType {Degrees, Radians};
+
+    Angle() = delete;
+    Angle(const eType type, const feFloat angle);
+
+    eType m_Type;
+    feFloat m_RawAngle;
+
+    // overload addition, substraction, comparison… operators to assert if types are not equal
+    // copy, assignment operators assign rhs’s type to lhs
+
+    // really think if a gettor for m_RawAngle is really necessary (Angle can be passed around in functions like if it was a float)
+}
+
+Add an interface Component for DebugRendering which has an “Update” function that is called after all game logic is run.
+Each class that inherits from the class (for example IDebugRenderable) can define their own function to draw debug rendering info.
+BENEFITS: Each instance can have their own enabled/disabled flag other than the generic enabled/disabled debug rendering flag
+          All the class can be encapsulated into an #ifdef to reduce executable size and compilation time into the final builds
+		  
+Add a modifier to the engine update dt to make the game go slower/faster as desired.
+Most useful when slowing the game to check stuff that happens very fast. Throw an ImGui slider in it and a reset button to 1 and that’s a pretty neat tool.
